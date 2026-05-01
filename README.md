@@ -165,6 +165,7 @@ This fork adds a local draft queue before any real publish action. The MCP servi
 cd ~/.openclaw/workspace/skills/xiaohongshu/scripts
 ./draft.sh '{"title":"标题","content":"正文","images":["/absolute/path/1.png"],"tags":["效率工具"]}'
 ./publish-draft.sh latest        # preview only
+./save-platform-draft.sh latest  # save to Xiaohongshu platform draft if supported
 ./publish-draft.sh latest --yes  # actually publish after user confirmation
 ```
 

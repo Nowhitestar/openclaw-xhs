@@ -175,6 +175,7 @@ sudo yum install -y xorg-x11-server-Xvfb
 cd ~/.openclaw/workspace/skills/xiaohongshu/scripts
 ./draft.sh '{"title":"标题","content":"正文","images":["/absolute/path/1.png"],"tags":["效率工具"]}'
 ./publish-draft.sh latest        # 只预览，不发布
+./save-platform-draft.sh latest  # 保存到小红书平台草稿（如果网页支持）
 ./publish-draft.sh latest --yes  # 确认后真正发布
 ```
 

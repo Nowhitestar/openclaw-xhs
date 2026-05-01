@@ -70,6 +70,7 @@ search_feeds / list_feeds / user_profile
 | `export-long-image.sh` | 帖子导出长图 | `--posts-file json -o output.jpg` |
 | `mcp-call.sh <tool> [json_args]` | 通用 MCP 调用 | 见下方工具表 |
 | `draft.sh <json>` | 创建本地发布草稿 | 不发布，只保存到 `~/.xiaohongshu/drafts/` |
+| `save-platform-draft.sh <file|latest>` | 保存到小红书平台草稿 | 调用 `save_draft_content`，不会点击发布 |
 | `publish-draft.sh <file|latest> [--yes]` | 预览/发布本地草稿 | 不带 `--yes` 只预览 |
 | `start-mcp.sh` | 启动服务 | `--headless=false` `--host=127.0.0.1` `--port=N` |
 | `stop-mcp.sh` | 停止服务 | 无 |
@@ -139,9 +140,24 @@ filters 可选字段：
 {"feed_id": "...", "xsec_token": "...", "unfavorite": true}
 ```
 
+
+### save_draft_content — 保存图文草稿
+
+```json
+{"title": "标题(≤20字)", "content": "正文(≤1000字)", "images": ["/path/to/img.jpg"], "tags": ["美食","旅行"]}
+```
+
+说明：底层会上传图片、填写标题/正文/标签，然后尝试点击小红书网页里的“保存草稿/存草稿”按钮；绝不点击发布按钮。如果页面没有草稿按钮，会返回错误。
+
+脚本封装：
+
+```bash
+./save-platform-draft.sh latest
+```
+
 ### publish_content — 发布图文
 
-**默认流程：先创建本地草稿，给用户确认后再发布。不要在用户明确确认前直接调用 `publish_content`。**
+**默认流程：先创建本地草稿，确认后可调用 `save_draft_content` 保存到小红书平台草稿；不要在用户明确确认前直接调用 `publish_content`。**
 
 ```bash
 ./draft.sh '{"title":"标题(≤20字)","content":"正文(≤1000字)","images":["/path/to/img.jpg"],"tags":["美食","旅行"]}'
