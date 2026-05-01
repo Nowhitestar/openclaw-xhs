@@ -1,8 +1,9 @@
 #!/bin/bash
 # 停止小红书 MCP 服务
 
-PID_FILE="$HOME/.xiaohongshu/mcp.pid"
-XVFB_PID_FILE="$HOME/.xiaohongshu/xvfb.pid"
+STATE_DIR="${XHS_STATE_DIR:-$HOME/.xiaohongshu}"
+PID_FILE="$STATE_DIR/mcp.pid"
+XVFB_PID_FILE="$STATE_DIR/xvfb.pid"
 
 if [ -f "$PID_FILE" ]; then
     PID=$(cat "$PID_FILE")
@@ -25,5 +26,5 @@ if [ -f "$XVFB_PID_FILE" ]; then
         kill "$XVFB_PID"
         echo "✓ Xvfb 已停止"
     fi
-    rm -f "$XVFB_PID_FILE" "$HOME/.xiaohongshu/xvfb.display"
+    rm -f "$XVFB_PID_FILE" "$STATE_DIR/xvfb.display"
 fi

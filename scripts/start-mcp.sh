@@ -1,22 +1,33 @@
 #!/bin/bash
-# 启动小红书 MCP 服务
+# 启动小红书 MCP 服务（安全默认：仅本机监听，cookies 留在 ~/.xiaohongshu）
 
-XHS_MCP="$HOME/.local/bin/xiaohongshu-mcp"
-PID_FILE="$HOME/.xiaohongshu/mcp.pid"
-LOG_FILE="$HOME/.xiaohongshu/mcp.log"
-XVFB_PID_FILE="$HOME/.xiaohongshu/xvfb.pid"
-XVFB_DISPLAY_FILE="$HOME/.xiaohongshu/xvfb.display"
+set -e
+
+XHS_MCP="${XHS_MCP_BIN:-$HOME/.local/bin/xiaohongshu-mcp}"
+STATE_DIR="${XHS_STATE_DIR:-$HOME/.xiaohongshu}"
+PID_FILE="$STATE_DIR/mcp.pid"
+LOG_FILE="$STATE_DIR/mcp.log"
+XVFB_PID_FILE="$STATE_DIR/xvfb.pid"
+XVFB_DISPLAY_FILE="$STATE_DIR/xvfb.display"
 
 # Cookies 路径（可通过环境变量覆盖）
-# XHS_COOKIES_SRC: 源 cookies 文件（用于远程服务器场景）
-# 默认检查 ~/cookies.json 和 ~/.xiaohongshu/cookies.json
-COOKIES_DST="/tmp/cookies.json"
+# 安全默认：不再使用 /tmp/cookies.json；登录态保存在 ~/.xiaohongshu/cookies.json
+# XHS_COOKIES_SRC 可用于从显式指定路径导入 cookies（例如迁移远程服务器登录态）。
+COOKIES_DST="${COOKIES_PATH:-$STATE_DIR/cookies.json}"
+export COOKIES_PATH="$COOKIES_DST"
 
-mkdir -p "$HOME/.xiaohongshu"
+mkdir -p "$STATE_DIR"
+chmod 700 "$STATE_DIR" 2>/dev/null || true
+
+if [ ! -x "$XHS_MCP" ]; then
+    echo "错误: xiaohongshu-mcp 不存在或不可执行: $XHS_MCP"
+    echo "请先运行 ./install-check.sh 查看安装指引。"
+    exit 1
+fi
 
 # 检测是否有显示器（桌面环境）
 has_display() {
-    [ -n "$DISPLAY" ] && xdpyinfo >/dev/null 2>&1
+    [ -n "${DISPLAY:-}" ] && command -v xdpyinfo >/dev/null 2>&1 && xdpyinfo >/dev/null 2>&1
 }
 
 # 在无桌面环境下自动启动 Xvfb
@@ -25,7 +36,6 @@ ensure_display() {
         return 0
     fi
 
-    # 已有 Xvfb 在运行
     if [ -f "$XVFB_PID_FILE" ]; then
         local pid
         pid=$(cat "$XVFB_PID_FILE")
@@ -36,17 +46,15 @@ ensure_display() {
         fi
     fi
 
-    # 检查 Xvfb 是否安装
     if ! command -v Xvfb >/dev/null 2>&1; then
         echo "⚠ 未检测到桌面环境，且未安装 Xvfb。"
-        echo "  请安装：sudo apt-get install -y xvfb"
-        echo "  安装后重新运行本脚本即可自动配置。"
+        echo "  Debian/Ubuntu: sudo apt-get install -y xvfb"
+        echo "  macOS/桌面环境通常不需要 Xvfb。"
         exit 1
     fi
 
     echo "未检测到桌面环境，自动启动 Xvfb 虚拟显示..."
 
-    # 自动选择可用的 display 号（99-109）
     local display_num=""
     local d
     for d in $(seq 99 109); do
@@ -54,7 +62,6 @@ ensure_display() {
             display_num=$d
             break
         fi
-        # 锁文件存在但进程已死，尝试清理后使用
         local lock_pid
         lock_pid=$(cat "/tmp/.X${d}-lock" 2>/dev/null | tr -d ' ')
         if [ -n "$lock_pid" ] && ! kill -0 "$lock_pid" 2>/dev/null; then
@@ -71,7 +78,6 @@ ensure_display() {
         exit 1
     fi
 
-    # -ac: 关闭访问控制，允许 chromium 连接虚拟显示（仅用于 headless 自动化）
     Xvfb ":${display_num}" -screen 0 1024x768x24 -ac >/dev/null 2>&1 &
     echo $! > "$XVFB_PID_FILE"
     echo ":${display_num}" > "$XVFB_DISPLAY_FILE"
@@ -86,34 +92,25 @@ ensure_display() {
     fi
 }
 
-# 同步 cookies（支持多个可能的来源）
 sync_cookies() {
     local src=""
 
-    # 优先使用环境变量指定的路径
-    if [ -n "$XHS_COOKIES_SRC" ] && [ -f "$XHS_COOKIES_SRC" ]; then
+    if [ -n "${XHS_COOKIES_SRC:-}" ] && [ -f "$XHS_COOKIES_SRC" ]; then
         src="$XHS_COOKIES_SRC"
-    elif [ -f "$HOME/cookies.json" ]; then
-        src="$HOME/cookies.json"
-    elif [ -f "$HOME/.xiaohongshu/cookies.json" ]; then
-        src="$HOME/.xiaohongshu/cookies.json"
+    elif [ -f "$COOKIES_DST" ]; then
+        chmod 600 "$COOKIES_DST" 2>/dev/null || true
+        return 0
     fi
 
     if [ -n "$src" ]; then
-        if [ ! -f "$COOKIES_DST" ] || [ "$src" -nt "$COOKIES_DST" ]; then
-            install -m 600 "$src" "$COOKIES_DST"
-            echo "已同步 cookies: $src -> $COOKIES_DST"
-        fi
-    else
-        # 确保已有的 cookies 文件权限正确
-        [ -f "$COOKIES_DST" ] && chmod 600 "$COOKIES_DST"
+        install -m 600 "$src" "$COOKIES_DST"
+        echo "已导入 cookies: $src -> $COOKIES_DST"
     fi
 }
 
 sync_cookies
 ensure_display
 
-# 检查是否已在运行
 if [ -f "$PID_FILE" ]; then
     PID=$(cat "$PID_FILE")
     if kill -0 "$PID" 2>/dev/null; then
@@ -123,13 +120,16 @@ if [ -f "$PID_FILE" ]; then
     fi
 fi
 
-# 解析参数
 HEADLESS="true"
+HOST="${XHS_MCP_HOST:-127.0.0.1}"
 PORT="${XHS_MCP_PORT:-18060}"
 for arg in "$@"; do
     case $arg in
         --headless=false)
             HEADLESS="false"
+            ;;
+        --host=*)
+            HOST="${arg#*=}"
             ;;
         --port=*)
             PORT="${arg#*=}"
@@ -137,27 +137,36 @@ for arg in "$@"; do
     esac
 done
 
-# 校验端口号
 if [[ ! "$PORT" =~ ^[0-9]+$ ]]; then
     echo "错误: 无效端口号: $PORT"
     exit 1
 fi
 
+if [[ ! "$HOST" =~ ^[A-Za-z0-9_.:-]+$ ]]; then
+    echo "错误: 无效监听地址: $HOST"
+    exit 1
+fi
+
+ADDR="${HOST}:${PORT}"
+ENDPOINT="http://${HOST}:${PORT}/mcp"
+
 # 启动服务
 echo "启动小红书 MCP 服务..."
+echo "  监听: $ADDR"
+echo "  cookies: $COOKIES_DST"
 if [ "$HEADLESS" = "false" ]; then
-    nohup "$XHS_MCP" -port ":${PORT}" -headless=false > "$LOG_FILE" 2>&1 &
+    nohup "$XHS_MCP" -port "$ADDR" -headless=false > "$LOG_FILE" 2>&1 &
 else
-    nohup "$XHS_MCP" -port ":${PORT}" > "$LOG_FILE" 2>&1 &
+    nohup "$XHS_MCP" -port "$ADDR" > "$LOG_FILE" 2>&1 &
 fi
 
 echo $! > "$PID_FILE"
 sleep 2
 
-# 验证启动
-if kill -0 $(cat "$PID_FILE") 2>/dev/null; then
-    echo "✓ MCP 服务已启动 (PID: $(cat $PID_FILE))"
-    echo "  端点: http://localhost:${PORT}/mcp"
+if kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+    chmod 600 "$COOKIES_DST" 2>/dev/null || true
+    echo "✓ MCP 服务已启动 (PID: $(cat "$PID_FILE"))"
+    echo "  端点: $ENDPOINT"
     echo "  日志: $LOG_FILE"
 else
     echo "✗ 启动失败，查看日志: $LOG_FILE"

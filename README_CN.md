@@ -97,26 +97,23 @@ cd ~/.openclaw/workspace/skills/xiaohongshu/scripts
 ```bash
 # 本地电脑（有 GUI）
 ./xiaohongshu-login
-# Cookies 保存在 /tmp/cookies.json
+# Cookies 保存在 ~/.xiaohongshu/cookies.json
 
 # 复制到服务器
-scp /tmp/cookies.json user@server:~/.xiaohongshu/cookies.json
+scp ~/.xiaohongshu/cookies.json user@server:~/.xiaohongshu/cookies.json
 ```
 
-服务启动时会自动检查以下位置的 cookies（按优先级）：
-
-1. 环境变量 `XHS_COOKIES_SRC` 指定的路径
-2. `~/cookies.json`
-3. `~/.xiaohongshu/cookies.json`
+服务启动时默认使用 `~/.xiaohongshu/cookies.json`（权限 600）。如需迁移其他路径的 cookies，可显式设置环境变量 `XHS_COOKIES_SRC=/path/to/cookies.json`。
 
 ### 4. 启动服务
 
 ```bash
-./start-mcp.sh              # headless 模式
-./start-mcp.sh --headless=false  # 显示浏览器（调试用）
+./start-mcp.sh                    # headless 模式，仅监听本机
+./start-mcp.sh --headless=false    # 显示浏览器（调试用）
+./start-mcp.sh --host=127.0.0.1 --port=18060
 ```
 
-服务监听 `http://localhost:18060/mcp`。
+服务默认监听 `http://127.0.0.1:18060/mcp`。除非你明确传 `--host=0.0.0.0`，否则不会暴露到局域网。
 
 停止服务：`./stop-mcp.sh`
 
@@ -168,6 +165,20 @@ sudo yum install -y xorg-x11-server-Xvfb
 - 📝 热帖详情（标题、作者、正文、热门评论）
 - 💬 评论区热点关键词
 - 📈 趋势分析
+
+
+### 草稿优先发布流程
+
+这个 fork 增加了“本地草稿箱”：在真正调用小红书发布接口前，先把标题、正文、图片、标签保存为本地 JSON 草稿，方便人工确认。底层 MCP 当前没有暴露小红书平台级“保存草稿”接口，所以这里是本地草稿队列。
+
+```bash
+cd ~/.openclaw/workspace/skills/xiaohongshu/scripts
+./draft.sh '{"title":"标题","content":"正文","images":["/absolute/path/1.png"],"tags":["效率工具"]}'
+./publish-draft.sh latest        # 只预览，不发布
+./publish-draft.sh latest --yes  # 确认后真正发布
+```
+
+草稿文件保存在 `~/.xiaohongshu/drafts/`，权限为 `600`。
 
 ### MCP 工具清单
 
@@ -289,7 +300,7 @@ python export_memory.py
 
 本项目在脚本安全方面采取了以下措施：
 
-- **Cookies 保护**：cookies 文件复制时自动设置 `600` 权限（仅当前用户可读写）
+- **Cookies 保护**：cookies 默认保存在 `~/.xiaohongshu/cookies.json`，权限为 `600`（仅当前用户可读写）
 - **防注入**：所有 shell 脚本使用 `jq` 构建 JSON payload，不通过字符串拼接，防止 shell 注入攻击
 - **工具名校验**：MCP 工具名限制为字母数字和下划线，拒绝非法字符
 - **路径校验**：跨 skill 调用时校验目标路径在允许的目录范围内

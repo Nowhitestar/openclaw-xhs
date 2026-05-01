@@ -3,9 +3,9 @@
 
 set -e
 
-TOOL_NAME="$1"
-TOOL_ARGS="$2"
-MCP_URL="${MCP_URL:-http://localhost:18060/mcp}"
+TOOL_NAME="${1:-}"
+TOOL_ARGS="${2:-}"
+MCP_URL="${MCP_URL:-http://127.0.0.1:18060/mcp}"
 export no_proxy="${no_proxy:+$no_proxy,}localhost,127.0.0.1"
 
 # 检查 jq 依赖

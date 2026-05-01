@@ -34,7 +34,7 @@ cd scripts/
 
 未登录时需扫码：`mcp-call.sh get_login_qrcode` 获取二维码，用小红书 App 扫码。
 
-服务端口可通过 `MCP_URL` 环境变量覆盖（默认 `http://localhost:18060/mcp`）。
+安全默认：`start-mcp.sh` 仅监听 `127.0.0.1:18060`，cookies 默认保存在 `~/.xiaohongshu/cookies.json`（权限 600）。服务端口可通过 `MCP_URL` 环境变量覆盖（默认 `http://127.0.0.1:18060/mcp`）。
 
 ## 核心数据流
 
@@ -69,7 +69,9 @@ search_feeds / list_feeds / user_profile
 | `track-topic.sh <话题> [选项]` | 热点分析报告 | `--limit N` `--output file` `--feishu` |
 | `export-long-image.sh` | 帖子导出长图 | `--posts-file json -o output.jpg` |
 | `mcp-call.sh <tool> [json_args]` | 通用 MCP 调用 | 见下方工具表 |
-| `start-mcp.sh` | 启动服务 | `--headless=false` `--port=N` |
+| `draft.sh <json>` | 创建本地发布草稿 | 不发布，只保存到 `~/.xiaohongshu/drafts/` |
+| `publish-draft.sh <file|latest> [--yes]` | 预览/发布本地草稿 | 不带 `--yes` 只预览 |
+| `start-mcp.sh` | 启动服务 | `--headless=false` `--host=127.0.0.1` `--port=N` |
 | `stop-mcp.sh` | 停止服务 | 无 |
 | `status.sh` | 检查登录 | 无 |
 | `install-check.sh` | 检查依赖 | 无 |
@@ -139,6 +141,16 @@ filters 可选字段：
 
 ### publish_content — 发布图文
 
+**默认流程：先创建本地草稿，给用户确认后再发布。不要在用户明确确认前直接调用 `publish_content`。**
+
+```bash
+./draft.sh '{"title":"标题(≤20字)","content":"正文(≤1000字)","images":["/path/to/img.jpg"],"tags":["美食","旅行"]}'
+./publish-draft.sh latest        # 仅预览
+./publish-draft.sh latest --yes  # 用户确认后才真正发布
+```
+
+底层 MCP 参数：
+
 ```json
 {"title": "标题(≤20字)", "content": "正文(≤1000字)", "images": ["/path/to/img.jpg"], "tags": ["美食","旅行"]}
 ```
@@ -196,6 +208,8 @@ posts.json 格式：
 ## 注意事项
 
 - Cookies 有效期约 30 天，过期需重新扫码
+- 默认 cookies 路径为 `~/.xiaohongshu/cookies.json`；不要把 cookies 放进仓库或聊天记录
+- 发布前优先用 `draft.sh` 创建本地草稿，再用 `publish-draft.sh` 预览确认
 - 首次启动会下载 headless 浏览器（~150MB）
 - 同一账号避免多客户端同时操作
 - 发布限制：标题≤20字符，正文≤1000字符，日发布≤50条

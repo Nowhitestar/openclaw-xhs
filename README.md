@@ -97,20 +97,21 @@ Get cookies on your local machine, then copy to server:
 ```bash
 # On local machine with GUI
 ./xiaohongshu-login
-# Cookies saved to /tmp/cookies.json
+# Cookies saved to ~/.xiaohongshu/cookies.json
 
 # Copy to server
-scp /tmp/cookies.json user@server:~/.xiaohongshu/cookies.json
+scp ~/.xiaohongshu/cookies.json user@server:~/.xiaohongshu/cookies.json
 ```
 
 ### 4. Start Service
 
 ```bash
-./start-mcp.sh              # Headless mode
+./start-mcp.sh              # Headless mode, loopback only
 ./start-mcp.sh --headless=false  # Show browser (debug)
+./start-mcp.sh --host=127.0.0.1 --port=18060
 ```
 
-Service runs at `http://localhost:18060/mcp`.
+Service runs at `http://127.0.0.1:18060/mcp` by default. The forked OpenClaw wrapper binds to loopback unless you explicitly pass `--host=0.0.0.0`.
 
 #### Server Deployment (Headless Linux)
 
@@ -154,6 +155,20 @@ Auto-search trending posts and generate analysis reports:
 ./track-topic.sh "travel" --limit 5 --output report.md
 ./track-topic.sh "iPhone" --limit 5 --feishu  # Export to Feishu
 ```
+
+
+### Safe draft-first publishing
+
+This fork adds a local draft queue before any real publish action. The MCP service does not expose a platform-level Xiaohongshu draft API, so the wrapper saves a local JSON draft first and requires an explicit publish confirmation.
+
+```bash
+cd ~/.openclaw/workspace/skills/xiaohongshu/scripts
+./draft.sh '{"title":"标题","content":"正文","images":["/absolute/path/1.png"],"tags":["效率工具"]}'
+./publish-draft.sh latest        # preview only
+./publish-draft.sh latest --yes  # actually publish after user confirmation
+```
+
+Draft files are stored under `~/.xiaohongshu/drafts/` with mode `600`.
 
 ### MCP Tools
 
